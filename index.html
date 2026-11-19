@@ -1,0 +1,2436 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#070414">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <title>NEON WAVE DASH // CYBER CITY</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@600;700&display=swap" rel="stylesheet">
+    <style>
+        /* Reset & Pencegahan Perilaku Sentuh Bawaan Android (Zoom, Scroll, Context Menu) */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-touch-callout: none;
+            touch-action: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        html, body {
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            background-color: #060312;
+            font-family: 'Orbitron', sans-serif;
+            color: #ffffff;
+        }
+
+        #game-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Lapisan Scanline CRT Ringan untuk Nuansa Cyberpunk */
+        .crt-overlay {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            background: linear-gradient(
+                rgba(18, 16, 16, 0) 50%, 
+                rgba(0, 0, 0, 0.18) 50%
+            );
+            background-size: 100% 4px;
+            z-index: 5;
+        }
+
+        /* Antarmuka HUD Minimalis */
+        #hud {
+            position: absolute;
+            top: env(safe-area-inset-top, 16px);
+            left: 0;
+            right: 0;
+            padding: 14px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .hud-box {
+            background: rgba(11, 7, 29, 0.65);
+            border: 1px solid rgba(0, 243, 255, 0.35);
+            border-radius: 10px;
+            padding: 8px 14px;
+            backdrop-filter: blur(4px);
+            box-shadow: 0 0 15px rgba(0, 243, 255, 0.15);
+        }
+
+        .hud-label {
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 0.72rem;
+            letter-spacing: 2px;
+            color: #8ceeff;
+            text-transform: uppercase;
+        }
+
+        .hud-value {
+            font-size: 1.35rem;
+            font-weight: 900;
+            color: #ffffff;
+            text-shadow: 0 0 10px #00f3ff;
+        }
+
+        .hud-right {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            pointer-events: auto;
+        }
+
+        /* Progress Bar Level */
+        #progress-wrapper {
+            position: absolute;
+            top: env(safe-area-inset-top, 16px);
+            left: 50%;
+            transform: translateX(-50%);
+            width: min(38vw, 240px);
+            padding-top: 16px;
+            z-index: 10;
+            pointer-events: none;
+            text-align: center;
+        }
+
+        .progress-track {
+            width: 100%;
+            height: 10px;
+            background: rgba(11, 7, 29, 0.85);
+            border: 1px solid rgba(0, 243, 255, 0.5);
+            border-radius: 999px;
+            overflow: hidden;
+            box-shadow: 0 0 12px rgba(0, 243, 255, 0.25);
+        }
+
+        #progress-fill {
+            width: 0%;
+            height: 100%;
+            background: linear-gradient(90deg, #00f3ff, #39ff14);
+            box-shadow: 0 0 10px #00f3ff;
+            transition: width 0.08s linear;
+        }
+
+        #progress-text {
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 0.78rem;
+            font-weight: 700;
+            letter-spacing: 1.5px;
+            color: #ffffff;
+            margin-top: 3px;
+            text-shadow: 0 0 6px #00f3ff;
+        }
+
+        /* Indikator Status Portal Aktif */
+        #status-badge {
+            position: absolute;
+            top: 84px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 5px 14px;
+            border-radius: 20px;
+            font-family: 'Rajdhani', sans-serif;
+            font-weight: 700;
+            font-size: 0.85rem;
+            letter-spacing: 1.5px;
+            background: rgba(255, 0, 127, 0.25);
+            border: 1px solid #ff007f;
+            color: #ff99cc;
+            text-shadow: 0 0 8px #ff007f;
+            opacity: 0;
+            transition: opacity 0.25s ease;
+            pointer-events: none;
+            z-index: 10;
+            white-space: nowrap;
+        }
+
+        #status-badge.visible {
+            opacity: 1;
+        }
+
+        /* Tombol Suara */
+        .icon-btn {
+            pointer-events: auto;
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            background: rgba(14, 9, 36, 0.8);
+            border: 1.5px solid #00f3ff;
+            color: #00f3ff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 0 12px rgba(0, 243, 255, 0.3);
+            transition: transform 0.1s ease, background 0.2s ease;
+        }
+
+        .icon-btn:active {
+            transform: scale(0.92);
+            background: rgba(0, 243, 255, 0.25);
+        }
+
+        /* Layar Overlay (Menu Mulai & Game Over) */
+        .screen-overlay {
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(circle at center, rgba(13, 7, 34, 0.78) 0%, rgba(5, 2, 16, 0.94) 100%);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 16px;
+            z-index: 20;
+            text-align: center;
+            transition: opacity 0.25s ease;
+            overflow-y: auto;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .cyber-card {
+            width: 100%;
+            max-width: 470px;
+            max-height: 92vh;
+            overflow-y: auto;
+            background: rgba(12, 8, 32, 0.92);
+            border: 2px solid #00f3ff;
+            border-radius: 18px;
+            padding: 20px 18px;
+            box-shadow: 0 0 30px rgba(0, 243, 255, 0.25), inset 0 0 20px rgba(255, 0, 127, 0.15);
+            position: relative;
+        }
+
+        .cyber-card::before {
+            content: '';
+            position: absolute;
+            top: -2px;
+            left: 20%;
+            right: 20%;
+            height: 3px;
+            background: #ff007f;
+            box-shadow: 0 0 12px #ff007f;
+        }
+
+        .subtitle-tag {
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 0.82rem;
+            letter-spacing: 3px;
+            color: #ff007f;
+            text-shadow: 0 0 8px #ff007f;
+            margin-bottom: 4px;
+            font-weight: 700;
+        }
+
+        .game-title {
+            font-size: clamp(1.6rem, 5.5vw, 2.3rem);
+            font-weight: 900;
+            line-height: 1.1;
+            letter-spacing: 2px;
+            background: linear-gradient(180deg, #ffffff 15%, #00f3ff 65%, #ff007f 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            filter: drop-shadow(0 0 14px rgba(0, 243, 255, 0.5));
+            margin-bottom: 12px;
+        }
+
+        /* Tab Navigasi Menu Utama (Level / Skin / Tema) */
+        .menu-tabs {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            margin-bottom: 14px;
+        }
+
+        .tab-btn {
+            padding: 9px 6px;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 1px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(0, 243, 255, 0.3);
+            border-radius: 10px;
+            color: #9ab3c9;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+
+        .tab-btn.active {
+            background: rgba(0, 243, 255, 0.2);
+            border-color: #00f3ff;
+            color: #ffffff;
+            box-shadow: 0 0 12px rgba(0, 243, 255, 0.35);
+        }
+
+        .tab-panel {
+            margin-bottom: 16px;
+            text-align: left;
+        }
+
+        /* Daftar Pilihan Level */
+        .level-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .level-card {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 12px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1.5px solid rgba(255, 255, 255, 0.14);
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+
+        .level-card.selected {
+            border-color: #00f3ff;
+            background: rgba(0, 243, 255, 0.14);
+            box-shadow: 0 0 14px rgba(0, 243, 255, 0.25);
+        }
+
+        .level-name {
+            font-size: 0.85rem;
+            font-weight: 800;
+            color: #ffffff;
+        }
+
+        .level-desc {
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 0.8rem;
+            color: #a8c7db;
+            margin-top: 2px;
+        }
+
+        .level-badge {
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 0.72rem;
+            font-weight: 700;
+            padding: 2px 7px;
+            border-radius: 6px;
+            margin-left: 6px;
+            vertical-align: middle;
+        }
+
+        .level-progress-pill {
+            font-size: 0.85rem;
+            font-weight: 900;
+            color: #39ff14;
+            text-shadow: 0 0 8px rgba(57, 255, 20, 0.5);
+            white-space: nowrap;
+            margin-left: 8px;
+        }
+
+        /* Garasi Skin Selector */
+        .skin-preview-box {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: rgba(7, 4, 22, 0.85);
+            border: 1px solid rgba(0, 243, 255, 0.35);
+            border-radius: 12px;
+            padding: 10px 14px;
+            margin-bottom: 10px;
+        }
+
+        #skinPreviewCanvas {
+            width: 140px;
+            height: 64px;
+            border-radius: 8px;
+            background: rgba(0, 0, 0, 0.45);
+        }
+
+        .skin-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+        }
+
+        .skin-item {
+            padding: 9px 10px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1.5px solid rgba(255, 255, 255, 0.14);
+            border-radius: 10px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .skin-item.selected {
+            border-color: #ff007f;
+            background: rgba(255, 0, 127, 0.16);
+            box-shadow: 0 0 12px rgba(255, 0, 127, 0.3);
+        }
+
+        .skin-swatch {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        /* Pemilih Tema Kota */
+        .theme-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .theme-item {
+            padding: 10px 12px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1.5px solid rgba(255, 255, 255, 0.14);
+            border-radius: 12px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .theme-item.selected {
+            border-color: #39ff14;
+            background: rgba(57, 255, 20, 0.12);
+            box-shadow: 0 0 12px rgba(57, 255, 20, 0.25);
+        }
+
+        .theme-palette {
+            display: flex;
+            gap: 4px;
+        }
+
+        .theme-palette span {
+            width: 12px;
+            height: 22px;
+            border-radius: 4px;
+        }
+
+        .instruction-box {
+            background: rgba(0, 243, 255, 0.08);
+            border: 1px solid rgba(0, 243, 255, 0.25);
+            border-radius: 10px;
+            padding: 8px 12px;
+            margin-bottom: 14px;
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 0.92rem;
+            line-height: 1.35;
+            color: #d6f9ff;
+        }
+
+        .instruction-box strong {
+            color: #00f3ff;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 22px;
+        }
+
+        .stat-item {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 12px;
+            padding: 10px;
+        }
+
+        .stat-item.highlight {
+            border-color: rgba(255, 0, 127, 0.5);
+            background: rgba(255, 0, 127, 0.08);
+        }
+
+        .stat-title {
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 0.78rem;
+            letter-spacing: 1.5px;
+            color: #a0b8cc;
+        }
+
+        .stat-num {
+            font-size: 1.45rem;
+            font-weight: 800;
+            color: #ffffff;
+            margin-top: 2px;
+        }
+
+        .stat-item.highlight .stat-num {
+            color: #ff4da6;
+            text-shadow: 0 0 10px rgba(255, 0, 127, 0.6);
+        }
+
+        .cyber-btn {
+            width: 100%;
+            padding: 16px 24px;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1.15rem;
+            font-weight: 900;
+            letter-spacing: 2px;
+            color: #050212;
+            background: linear-gradient(90deg, #00f3ff 0%, #39ff14 50%, #00f3ff 100%);
+            background-size: 200% auto;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            box-shadow: 0 0 22px rgba(0, 243, 255, 0.6);
+            transition: transform 0.12s ease, box-shadow 0.2s ease;
+        }
+
+        .cyber-btn:active {
+            transform: scale(0.95);
+            box-shadow: 0 0 10px rgba(0, 243, 255, 0.4);
+        }
+
+        .cyber-btn.pink {
+            background: linear-gradient(90deg, #ff007f 0%, #ff5e00 50%, #ff007f 100%);
+            color: #ffffff;
+            box-shadow: 0 0 22px rgba(255, 0, 127, 0.65);
+        }
+
+        .cyber-btn.secondary {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1.5px solid #00f3ff;
+            color: #00f3ff;
+            box-shadow: none;
+            margin-top: 10px;
+            font-size: 0.92rem;
+            padding: 12px 18px;
+        }
+
+        .portal-legend {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            margin-top: 12px;
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 0.78rem;
+            color: #9ab3c9;
+            flex-wrap: wrap;
+        }
+
+        .legend-dot {
+            display: inline-block;
+            width: 9px;
+            height: 9px;
+            border-radius: 50%;
+            margin-right: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <canvas id="gameCanvas"></canvas>
+        <div class="crt-overlay"></div>
+
+        <!-- HUD Atas -->
+        <div id="hud">
+            <div class="hud-box">
+                <div class="hud-label" id="hud-level-label">LEVEL 1</div>
+                <div class="hud-value" id="hud-score">0 m</div>
+            </div>
+
+            <div class="hud-right">
+                <div class="hud-box" style="text-align: right;">
+                    <div class="hud-label">REKOR</div>
+                    <div class="hud-value" id="hud-best">0%</div>
+                </div>
+                <button id="pause-btn" class="icon-btn hidden" aria-label="Jeda">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                        <rect x="6" y="4" width="4" height="16" rx="1"></rect>
+                        <rect x="14" y="4" width="4" height="16" rx="1"></rect>
+                    </svg>
+                </button>
+                <button id="mute-btn" class="icon-btn" aria-label="Suara">
+                    <!-- Ikon Speaker Aktif -->
+                    <svg id="icon-sound-on" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                        <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+                        <path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>
+                    </svg>
+                    <!-- Ikon Speaker Bisu -->
+                    <svg id="icon-sound-off" class="hidden" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ff007f" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                        <line x1="23" y1="9" x2="17" y2="15"></line>
+                        <line x1="17" y1="9" x2="23" y2="15"></line>
+                    </svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- Progress Bar Level (0% - 100%) -->
+        <div id="progress-wrapper" class="hidden">
+            <div class="progress-track">
+                <div id="progress-fill"></div>
+            </div>
+            <div id="progress-text">0%</div>
+        </div>
+
+        <!-- Lencana Efek Portal Aktif -->
+        <div id="status-badge">MODE: NORMAL</div>
+
+        <!-- Layar Mulai (Dengan Pemilih Level, Garasi Skin & Tema Kota) -->
+        <div id="start-screen" class="screen-overlay">
+            <div class="cyber-card">
+                <div class="subtitle-tag">SECTOR 2099 // CYBER RUNNER</div>
+                <h1 class="game-title">NEON WAVE DASH</h1>
+
+                <div class="instruction-box">
+                    <strong>TAHAN LAYAR</strong> melesat naik 45° &bull; <strong>LEPAS</strong> meluncur turun 45°.
+                </div>
+
+                <!-- Navigasi Tab -->
+                <div class="menu-tabs">
+                    <button class="tab-btn active" data-tab="levels">LEVEL</button>
+                    <button class="tab-btn" data-tab="skins">GARASI SKIN</button>
+                    <button class="tab-btn" data-tab="themes">TEMA KOTA</button>
+                </div>
+
+                <!-- Panel 1: Pilih Level -->
+                <div id="panel-levels" class="tab-panel">
+                    <div class="level-list" id="level-list"></div>
+                </div>
+
+                <!-- Panel 2: Garasi Skin -->
+                <div id="panel-skins" class="tab-panel hidden">
+                    <div class="skin-preview-box">
+                        <div>
+                            <div class="hud-label">PESAWAT AKTIF</div>
+                            <div id="active-skin-name" style="font-size: 0.95rem; font-weight: 800; color: #00f3ff;">CLASSIC DART</div>
+                            <div id="active-skin-desc" style="font-family: 'Rajdhani', sans-serif; font-size: 0.8rem; color: #b5d3e8;">Trail Cyan / Magenta Tajam</div>
+                        </div>
+                        <canvas id="skinPreviewCanvas" width="280" height="128"></canvas>
+                    </div>
+                    <div class="skin-grid" id="skin-grid"></div>
+                </div>
+
+                <!-- Panel 3: Tema Kota -->
+                <div id="panel-themes" class="tab-panel hidden">
+                    <div class="theme-grid" id="theme-grid"></div>
+                </div>
+
+                <button id="start-btn" class="cyber-btn">MULAI MISI</button>
+                <div class="portal-legend">
+                    <span><i class="legend-dot" style="background:#ff9d00;box-shadow:0 0 6px #ff9d00;"></i>TURBO</span>
+                    <span><i class="legend-dot" style="background:#b829ff;box-shadow:0 0 6px #b829ff;"></i>GRAVITASI</span>
+                    <span><i class="legend-dot" style="background:#39ff14;box-shadow:0 0 6px #39ff14;"></i>MINI WAVE</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Layar Jeda (Pause) -->
+        <div id="pause-screen" class="screen-overlay hidden">
+            <div class="cyber-card" style="max-width: 360px;">
+                <div class="subtitle-tag">SISTEM DIJEDA</div>
+                <h2 class="game-title" style="font-size: 1.9rem;">PAUSE</h2>
+                <button id="resume-btn" class="cyber-btn">LANJUTKAN</button>
+                <button id="restart-pause-btn" class="cyber-btn secondary">ULANGI LEVEL</button>
+                <button id="menu-pause-btn" class="cyber-btn secondary">MENU UTAMA</button>
+            </div>
+        </div>
+
+        <!-- Layar Game Over / Level Complete -->
+        <div id="gameover-screen" class="screen-overlay hidden">
+            <div class="cyber-card" id="result-card" style="border-color: #ff007f;">
+                <div class="subtitle-tag" id="gameover-tag">SISTEM HANCUR</div>
+                <h2 class="game-title" id="result-title" style="font-size: 2rem;">GAME OVER</h2>
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <div class="stat-title" id="stat-left-label">KEMAJUAN</div>
+                        <div class="stat-num" id="final-score">0%</div>
+                    </div>
+                    <div class="stat-item highlight">
+                        <div class="stat-title" id="stat-right-label">REKOR TERBAIK</div>
+                        <div class="stat-num" id="final-best-score">0%</div>
+                    </div>
+                </div>
+                <button id="retry-btn" class="cyber-btn pink">MAIN LAGI</button>
+                <button id="next-level-btn" class="cyber-btn hidden" style="margin-top: 10px;">LEVEL BERIKUTNYA</button>
+                <button id="menu-result-btn" class="cyber-btn secondary">PILIH LEVEL / SKIN</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /**
+         * ============================================================================
+         * NEON WAVE DASH - ENGINE & AUDIO SINTESIS CYBERPUNK (V2: TRAIL, LEVEL, SKIN, TEMA)
+         * ============================================================================
+         */
+
+        // --- 1. SISTEM AUDIO WEB AUDIO API (TANPA FILE EKSTERNAL) ---
+        class CyberAudioEngine {
+            constructor() {
+                this.ctx = null;
+                this.isMuted = false;
+                this.bgmInterval = null;
+                this.stepIndex = 0;
+                this.bassNotes = [73.42, 73.42, 87.31, 87.31, 98.00, 98.00, 110.00, 130.81];
+            }
+
+            init() {
+                if (!this.ctx) {
+                    const AudioContext = window.AudioContext || window.webkitAudioContext;
+                    this.ctx = new AudioContext();
+                }
+                if (this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            }
+
+            toggleMute() {
+                this.isMuted = !this.isMuted;
+                if (this.isMuted) {
+                    this.stopBGM();
+                } else if (gameState === 'PLAYING') {
+                    this.startBGM();
+                }
+                return this.isMuted;
+            }
+
+            playTurn(isGoingUp) {
+                if (this.isMuted || !this.ctx) return;
+                try {
+                    const now = this.ctx.currentTime;
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'triangle';
+                    const startFreq = isGoingUp ? 290 : 450;
+                    const endFreq = isGoingUp ? 540 : 215;
+                    osc.frequency.setValueAtTime(startFreq, now);
+                    osc.frequency.exponentialRampToValueAtTime(endFreq, now + 0.06);
+
+                    gain.gain.setValueAtTime(0.09, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
+
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(now);
+                    osc.stop(now + 0.065);
+                } catch (e) {}
+            }
+
+            playPortal() {
+                if (this.isMuted || !this.ctx) return;
+                try {
+                    const now = this.ctx.currentTime;
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(320, now);
+                    osc.frequency.exponentialRampToValueAtTime(980, now + 0.24);
+
+                    gain.gain.setValueAtTime(0.16, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(now);
+                    osc.stop(now + 0.26);
+                } catch (e) {}
+            }
+
+            playWin() {
+                if (this.isMuted || !this.ctx) return;
+                const notes = [523.25, 659.25, 783.99, 1046.50];
+                notes.forEach((freq, idx) => {
+                    try {
+                        const now = this.ctx.currentTime + idx * 0.09;
+                        const osc = this.ctx.createOscillator();
+                        const gain = this.ctx.createGain();
+                        osc.type = 'triangle';
+                        osc.frequency.setValueAtTime(freq, now);
+                        gain.gain.setValueAtTime(0.15, now);
+                        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.28);
+                        osc.connect(gain);
+                        gain.connect(this.ctx.destination);
+                        osc.start(now);
+                        osc.stop(now + 0.3);
+                    } catch (e) {}
+                });
+            }
+
+            playExplosion() {
+                if (this.isMuted || !this.ctx) return;
+                try {
+                    const now = this.ctx.currentTime;
+                    const bufferSize = this.ctx.sampleRate * 0.45;
+                    const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+                    const data = buffer.getChannelData(0);
+                    for (let i = 0; i < bufferSize; i++) {
+                        data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (this.ctx.sampleRate * 0.12));
+                    }
+
+                    const noise = this.ctx.createBufferSource();
+                    noise.buffer = buffer;
+
+                    const filter = this.ctx.createBiquadFilter();
+                    filter.type = 'lowpass';
+                    filter.frequency.setValueAtTime(900, now);
+                    filter.frequency.exponentialRampToValueAtTime(70, now + 0.42);
+
+                    const gain = this.ctx.createGain();
+                    gain.gain.setValueAtTime(0.32, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.44);
+
+                    noise.connect(filter);
+                    filter.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    noise.start(now);
+                } catch (e) {}
+            }
+
+            startBGM() {
+                if (this.isMuted || !this.ctx) return;
+                this.stopBGM();
+                this.stepIndex = 0;
+                this.bgmInterval = setInterval(() => {
+                    if (this.isMuted || gameState !== 'PLAYING' || !this.ctx) return;
+                    try {
+                        const now = this.ctx.currentTime;
+                        const osc = this.ctx.createOscillator();
+                        const filter = this.ctx.createBiquadFilter();
+                        const gain = this.ctx.createGain();
+
+                        osc.type = 'sawtooth';
+                        const freq = this.bassNotes[this.stepIndex % this.bassNotes.length];
+                        osc.frequency.setValueAtTime(freq, now);
+
+                        filter.type = 'lowpass';
+                        filter.frequency.setValueAtTime(340, now);
+                        filter.frequency.exponentialRampToValueAtTime(110, now + 0.14);
+
+                        gain.gain.setValueAtTime(0.065, now);
+                        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+
+                        osc.connect(filter);
+                        filter.connect(gain);
+                        gain.connect(this.ctx.destination);
+
+                        osc.start(now);
+                        osc.stop(now + 0.16);
+                        this.stepIndex++;
+                    } catch (e) {}
+                }, 175);
+            }
+
+            stopBGM() {
+                if (this.bgmInterval) {
+                    clearInterval(this.bgmInterval);
+                    this.bgmInterval = null;
+                }
+            }
+        }
+
+        const audio = new CyberAudioEngine();
+
+        // --- 2. DATA KONFIGURASI LEVEL, SKIN PESAWAT, DAN TEMA KOTA ---
+        const LEVELS = [
+            {
+                id: 'lvl1',
+                number: 1,
+                name: 'CYBER OUTSKIRTS',
+                difficulty: 'EASY',
+                diffColor: '#39ff14',
+                desc: 'Lorong lebar, pengenalan naik-turun & portal kecepatan',
+                targetDistance: 450,
+                baseSpeed: 315,
+                gapScale: 1.24,
+                allowSaws: false,
+                allowLasers: false,
+                portals: ['SPEED', 'NORMAL'],
+                autoTheme: 'neotokyo'
+            },
+            {
+                id: 'lvl2',
+                number: 2,
+                name: 'NEON DOWNTOWN',
+                difficulty: 'NORMAL',
+                diffColor: '#00f3ff',
+                desc: 'Lorong bertingkat, gergaji laser berputar & gravitasi terbalik',
+                targetDistance: 700,
+                baseSpeed: 355,
+                gapScale: 1.05,
+                allowSaws: true,
+                allowLasers: false,
+                portals: ['GRAVITY', 'SPEED', 'NORMAL'],
+                autoTheme: 'solaris'
+            },
+            {
+                id: 'lvl3',
+                number: 3,
+                name: 'REACTOR CORE',
+                difficulty: 'HARD',
+                diffColor: '#ff007f',
+                desc: 'Lorong sempit presisi, laser berkedip, mini-wave & gravitasi',
+                targetDistance: 950,
+                baseSpeed: 395,
+                gapScale: 0.90,
+                allowSaws: true,
+                allowLasers: true,
+                portals: ['GRAVITY', 'MINI', 'SPEED', 'NORMAL'],
+                autoTheme: 'matrix'
+            },
+            {
+                id: 'lvl4',
+                number: 4,
+                name: 'ENDLESS OVERDRIVE',
+                difficulty: 'ENDLESS',
+                diffColor: '#ff9d00',
+                desc: 'Mode tanpa batas! Kecepatan & tantangan meningkat terus',
+                targetDistance: null,
+                baseSpeed: 345,
+                gapScale: 1.0,
+                allowSaws: true,
+                allowLasers: true,
+                portals: ['GRAVITY', 'MINI', 'SPEED', 'NORMAL'],
+                autoTheme: 'neotokyo'
+            }
+        ];
+
+        const SKINS = [
+            {
+                id: 'classic',
+                name: 'CLASSIC DART',
+                desc: 'Panah segitiga tajam + trail cyan/magenta',
+                primary: '#00f3ff',
+                aura: 'rgba(255, 0, 127, 0.42)',
+                rainbow: false
+            },
+            {
+                id: 'cyberwing',
+                name: 'CYBER WING',
+                desc: 'Sayap ganda agresif + trail emas plasma',
+                primary: '#ffb700',
+                aura: 'rgba(255, 94, 0, 0.45)',
+                rainbow: false
+            },
+            {
+                id: 'viper',
+                name: 'STEALTH VIPER',
+                desc: 'Jet runcing tajam + trail hijau matrix',
+                primary: '#39ff14',
+                aura: 'rgba(0, 255, 136, 0.40)',
+                rainbow: false
+            },
+            {
+                id: 'prism',
+                name: 'PRISM BLADE',
+                desc: 'Kristal berlian + trail pelangi dinamis',
+                primary: '#ff4da6',
+                aura: 'rgba(0, 243, 255, 0.45)',
+                rainbow: true
+            },
+            {
+                id: 'phantom',
+                name: 'PHANTOM VOID',
+                desc: 'Sabit futuristik + trail ungu elektrik',
+                primary: '#c84bff',
+                aura: 'rgba(138, 43, 226, 0.48)',
+                rainbow: false
+            }
+        ];
+
+        const THEMES = {
+            auto: {
+                id: 'auto',
+                name: 'OTOMATIS (SESUAI LEVEL)',
+                desc: 'Berubah otomatis mengikuti tema tiap level',
+                swatches: ['#00f3ff', '#ff9d00', '#39ff14']
+            },
+            neotokyo: {
+                id: 'neotokyo',
+                name: 'NEO TOKYO NIGHT',
+                desc: 'Biru tua malam, gedung magenta/cyan, matahari synthwave',
+                swatches: ['#050212', '#00f3ff', '#ff007f'],
+                skyTop: '#050212',
+                skyMid: '#130836',
+                skyBot: '#240b4c',
+                sunTop: 'rgba(255, 0, 127, 0.36)',
+                sunBot: 'rgba(0, 243, 255, 0.06)',
+                farBuilding1: '#26145c',
+                farBuilding2: '#1b1047',
+                midBuilding: '#0c0624',
+                buildingNeons: ['#00f3ff', '#ff007f', '#b829ff'],
+                gridColor: 'rgba(0, 243, 255, 0.08)',
+                boundaryColor: '#00f3ff',
+                blockFill: '#12072e',
+                blockStroke: '#ff007f',
+                sawStroke: '#ff2a6d',
+                laserColor: '#ff0055',
+                matrixRain: false
+            },
+            solaris: {
+                id: 'solaris',
+                name: 'SOLARIS SUNSET',
+                desc: 'Langit senja ungu-jingga keemasan & matahari cyber raksasa',
+                swatches: ['#1a062b', '#ff6a00', '#ffd000'],
+                skyTop: '#160426',
+                skyMid: '#4a1248',
+                skyBot: '#a8382b',
+                sunTop: 'rgba(255, 215, 0, 0.55)',
+                sunBot: 'rgba(255, 69, 0, 0.14)',
+                farBuilding1: '#240b2e',
+                farBuilding2: '#1a0721',
+                midBuilding: '#0e0414',
+                buildingNeons: ['#ffd000', '#ff6a00', '#ff2a85'],
+                gridColor: 'rgba(255, 183, 0, 0.09)',
+                boundaryColor: '#ffd000',
+                blockFill: '#1f081d',
+                blockStroke: '#ff7b00',
+                sawStroke: '#ffd000',
+                laserColor: '#ff4500',
+                matrixRain: false
+            },
+            matrix: {
+                id: 'matrix',
+                name: 'MATRIX MAINFRAME',
+                desc: 'Hitam pekat, gedung digital hijau & hujan kode matriks',
+                swatches: ['#010a04', '#008f11', '#39ff14'],
+                skyTop: '#010803',
+                skyMid: '#031709',
+                skyBot: '#062610',
+                sunTop: 'rgba(57, 255, 20, 0.24)',
+                sunBot: 'rgba(0, 143, 17, 0.04)',
+                farBuilding1: '#051f0d',
+                farBuilding2: '#031408',
+                midBuilding: '#020d05',
+                buildingNeons: ['#39ff14', '#00ff88', '#00b84d'],
+                gridColor: 'rgba(57, 255, 20, 0.09)',
+                boundaryColor: '#39ff14',
+                blockFill: '#031708',
+                blockStroke: '#39ff14',
+                sawStroke: '#00ff88',
+                laserColor: '#39ff14',
+                matrixRain: true
+            }
+        };
+
+        // --- 3. PENYIMPANAN PROGRES & PREFERENSI (LOCALSTORAGE) ---
+        const SAVE_KEY = 'neon_wave_dash_save_v2';
+        let saveData = {
+            selectedLevelIndex: 0,
+            selectedSkinId: 'classic',
+            selectedThemeId: 'auto',
+            levelProgress: {
+                lvl1: 0,
+                lvl2: 0,
+                lvl3: 0,
+                lvl4: 0 // untuk endless menyimpan jarak terbaik (meter)
+            }
+        };
+
+        try {
+            const raw = localStorage.getItem(SAVE_KEY);
+            if (raw) {
+                const parsed = JSON.parse(raw);
+                saveData = {
+                    ...saveData,
+                    ...parsed,
+                    levelProgress: { ...saveData.levelProgress, ...(parsed.levelProgress || {}) }
+                };
+            }
+        } catch (e) {}
+
+        function persistSave() {
+            try {
+                localStorage.setItem(SAVE_KEY, JSON.stringify(saveData));
+            } catch (e) {}
+        }
+
+        function getCurrentLevel() {
+            return LEVELS[saveData.selectedLevelIndex] || LEVELS[0];
+        }
+
+        function getCurrentSkin() {
+            return SKINS.find(s => s.id === saveData.selectedSkinId) || SKINS[0];
+        }
+
+        function getActiveTheme() {
+            if (saveData.selectedThemeId === 'auto') {
+                const lvl = getCurrentLevel();
+                return THEMES[lvl.autoTheme] || THEMES.neotokyo;
+            }
+            return THEMES[saveData.selectedThemeId] || THEMES.neotokyo;
+        }
+
+        // --- 4. INISIALISASI KANVAS & ELEMEN UI ---
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d', { alpha: false });
+        const skinPreviewCanvas = document.getElementById('skinPreviewCanvas');
+        const skinPreviewCtx = skinPreviewCanvas.getContext('2d');
+
+        const hudLevelLabel = document.getElementById('hud-level-label');
+        const hudScoreEl = document.getElementById('hud-score');
+        const hudBestEl = document.getElementById('hud-best');
+        const pauseBtn = document.getElementById('pause-btn');
+        const progressWrapper = document.getElementById('progress-wrapper');
+        const progressFill = document.getElementById('progress-fill');
+        const progressText = document.getElementById('progress-text');
+
+        const startScreen = document.getElementById('start-screen');
+        const pauseScreen = document.getElementById('pause-screen');
+        const gameoverScreen = document.getElementById('gameover-screen');
+        const resultCard = document.getElementById('result-card');
+        const resultTitleEl = document.getElementById('result-title');
+        const gameoverTagEl = document.getElementById('gameover-tag');
+        const statLeftLabel = document.getElementById('stat-left-label');
+        const statRightLabel = document.getElementById('stat-right-label');
+        const finalScoreEl = document.getElementById('final-score');
+        const finalBestScoreEl = document.getElementById('final-best-score');
+        const nextLevelBtn = document.getElementById('next-level-btn');
+        const statusBadgeEl = document.getElementById('status-badge');
+
+        const muteBtn = document.getElementById('mute-btn');
+        const iconSoundOn = document.getElementById('icon-sound-on');
+        const iconSoundOff = document.getElementById('icon-sound-off');
+
+        let width = window.innerWidth;
+        let height = window.innerHeight;
+        let dpr = Math.min(window.devicePixelRatio || 1, 2);
+        let unitScale = 1;
+
+        function resizeCanvas() {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+            canvas.width = Math.floor(width * dpr);
+            canvas.height = Math.floor(height * dpr);
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+            unitScale = Math.max(0.65, Math.min(1.35, height / 700));
+            initCityParallax();
+            initMatrixDrops();
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+
+        // --- 5. VARIABEL STATUS GAME ---
+        let gameState = 'START'; // 'START', 'PLAYING', 'PAUSED', 'GAMEOVER', 'WIN'
+        let isHolding = false;
+        let lastTime = 0;
+        let globalClock = 0;
+
+        let distance = 0;
+        let speedMultiplier = 1.0;
+        let gravityInverted = false;
+        let isMiniWave = false;
+        let screenShake = 0;
+        let gridOffset = 0;
+        let finishSpawned = false;
+
+        // Karakter Wave & Trail Vertex Node Presisi
+        const player = {
+            x: 110,
+            y: 300,
+            size: 13.5,
+            angle: 0,
+            // Menyimpan titik belokan (vertex) dalam koordinat dunia
+            vertices: []
+        };
+
+        let obstacles = [];
+        let portals = [];
+        let particles = [];
+        let nextSpawnX = 0;
+        let lastCorridorY = 0;
+
+        let farBuildings = [];
+        let midBuildings = [];
+        let matrixDrops = [];
+
+        // --- 6. RENDER UI MENU (LEVEL, GARASI SKIN, TEMA KOTA) ---
+        function renderMenuUI() {
+            // 1. Render Daftar Level
+            const levelListEl = document.getElementById('level-list');
+            levelListEl.innerHTML = '';
+            LEVELS.forEach((lvl, idx) => {
+                const isSelected = saveData.selectedLevelIndex === idx;
+                const savedVal = saveData.levelProgress[lvl.id] || 0;
+                const progressStr = lvl.targetDistance
+                    ? (savedVal >= 100 ? '100% ★' : `${savedVal}%`)
+                    : `${savedVal} m`;
+
+                const card = document.createElement('div');
+                card.className = `level-card ${isSelected ? 'selected' : ''}`;
+                card.innerHTML = `
+                    <div>
+                        <div class="level-name">
+                            LVL ${lvl.number}: ${lvl.name}
+                            <span class="level-badge" style="color:${lvl.diffColor};border:1px solid ${lvl.diffColor};">${lvl.difficulty}</span>
+                        </div>
+                        <div class="level-desc">${lvl.desc}</div>
+                    </div>
+                    <div class="level-progress-pill">${progressStr}</div>
+                `;
+                card.addEventListener('click', () => {
+                    saveData.selectedLevelIndex = idx;
+                    persistSave();
+                    initCityParallax();
+                    renderMenuUI();
+                });
+                levelListEl.appendChild(card);
+            });
+
+            // 2. Render Garasi Skin
+            const skinGridEl = document.getElementById('skin-grid');
+            skinGridEl.innerHTML = '';
+            const activeSkin = getCurrentSkin();
+            document.getElementById('active-skin-name').textContent = activeSkin.name;
+            document.getElementById('active-skin-name').style.color = activeSkin.primary;
+            document.getElementById('active-skin-desc').textContent = activeSkin.desc;
+
+            SKINS.forEach((skin) => {
+                const isSelected = saveData.selectedSkinId === skin.id;
+                const item = document.createElement('div');
+                item.className = `skin-item ${isSelected ? 'selected' : ''}`;
+                item.innerHTML = `
+                    <span class="skin-swatch" style="background:${skin.rainbow ? 'linear-gradient(45deg,#ff007f,#ffd000,#39ff14,#00f3ff)' : skin.primary};box-shadow:0 0 8px ${skin.primary};"></span>
+                    <span style="font-size:0.74rem;font-weight:700;color:#fff;">${skin.name}</span>
+                `;
+                item.addEventListener('click', () => {
+                    saveData.selectedSkinId = skin.id;
+                    persistSave();
+                    renderMenuUI();
+                });
+                skinGridEl.appendChild(item);
+            });
+
+            // 3. Render Tema Kota
+            const themeGridEl = document.getElementById('theme-grid');
+            themeGridEl.innerHTML = '';
+            Object.values(THEMES).forEach((thm) => {
+                const isSelected = saveData.selectedThemeId === thm.id;
+                const item = document.createElement('div');
+                item.className = `theme-item ${isSelected ? 'selected' : ''}`;
+                const swatchesHTML = thm.swatches.map(c => `<span style="background:${c};box-shadow:0 0 6px ${c};"></span>`).join('');
+                item.innerHTML = `
+                    <div>
+                        <div style="font-size:0.8rem;font-weight:800;color:#fff;">${thm.name}</div>
+                        <div style="font-family:'Rajdhani',sans-serif;font-size:0.78rem;color:#a8c7db;">${thm.desc}</div>
+                    </div>
+                    <div class="theme-palette">${swatchesHTML}</div>
+                `;
+                item.addEventListener('click', () => {
+                    saveData.selectedThemeId = thm.id;
+                    persistSave();
+                    initCityParallax();
+                    renderMenuUI();
+                });
+                themeGridEl.appendChild(item);
+            });
+
+            updateHUDHeader();
+        }
+
+        function updateHUDHeader() {
+            const lvl = getCurrentLevel();
+            const savedVal = saveData.levelProgress[lvl.id] || 0;
+            hudLevelLabel.textContent = lvl.targetDistance ? `LVL ${lvl.number}` : 'ENDLESS';
+            hudBestEl.textContent = lvl.targetDistance ? `${savedVal}%` : `${savedVal} m`;
+        }
+
+        // Kontrol Tab Menu
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                const target = btn.dataset.tab;
+                document.getElementById('panel-levels').classList.toggle('hidden', target !== 'levels');
+                document.getElementById('panel-skins').classList.toggle('hidden', target !== 'skins');
+                document.getElementById('panel-themes').classList.toggle('hidden', target !== 'themes');
+            });
+        });
+
+        // --- 7. RENDER BENTUK PESAWAT SKIN (DIGUNAKAN DI GAME & PRATINJAU GARASI) ---
+        function drawWaveShipShape(targetCtx, skinId, s, primaryColor) {
+            targetCtx.beginPath();
+            if (skinId === 'cyberwing') {
+                // Sayap ganda agresif
+                targetCtx.moveTo(s * 1.45, 0);
+                targetCtx.lineTo(-s * 0.65, -s * 0.98);
+                targetCtx.lineTo(-s * 0.35, -s * 0.35);
+                targetCtx.lineTo(-s * 1.05, -s * 0.55);
+                targetCtx.lineTo(-s * 0.55, 0);
+                targetCtx.lineTo(-s * 1.05, s * 0.55);
+                targetCtx.lineTo(-s * 0.35, s * 0.35);
+                targetCtx.lineTo(-s * 0.65, s * 0.98);
+            } else if (skinId === 'viper') {
+                // Jet runcing jarum
+                targetCtx.moveTo(s * 1.6, 0);
+                targetCtx.lineTo(-s * 0.85, -s * 0.72);
+                targetCtx.lineTo(-s * 1.15, -s * 0.25);
+                targetCtx.lineTo(-s * 0.6, 0);
+                targetCtx.lineTo(-s * 1.15, s * 0.25);
+                targetCtx.lineTo(-s * 0.85, s * 0.72);
+            } else if (skinId === 'prism') {
+                // Kristal berlian geometris
+                targetCtx.moveTo(s * 1.4, 0);
+                targetCtx.lineTo(0, -s * 0.85);
+                targetCtx.lineTo(-s * 1.05, 0);
+                targetCtx.lineTo(0, s * 0.85);
+            } else if (skinId === 'phantom') {
+                // Sabit futuristik melengkung
+                targetCtx.moveTo(s * 1.4, 0);
+                targetCtx.quadraticCurveTo(-s * 0.2, -s * 1.1, -s * 1.1, -s * 0.9);
+                targetCtx.quadraticCurveTo(-s * 0.4, 0, -s * 1.1, s * 0.9);
+                targetCtx.quadraticCurveTo(-s * 0.2, s * 1.1, s * 1.4, 0);
+            } else {
+                // Classic Dart
+                targetCtx.moveTo(s * 1.38, 0);
+                targetCtx.lineTo(-s * 0.95, -s * 0.86);
+                targetCtx.lineTo(-s * 0.45, 0);
+                targetCtx.lineTo(-s * 0.95, s * 0.86);
+            }
+            targetCtx.closePath();
+
+            targetCtx.fillStyle = '#ffffff';
+            targetCtx.strokeStyle = primaryColor;
+            targetCtx.lineWidth = 2.5;
+            targetCtx.shadowColor = primaryColor;
+            targetCtx.shadowBlur = 16;
+            targetCtx.fill();
+            targetCtx.stroke();
+        }
+
+        function renderSkinPreviewLoop(t) {
+            const w = skinPreviewCanvas.width;
+            const h = skinPreviewCanvas.height;
+            skinPreviewCtx.clearRect(0, 0, w, h);
+
+            const skin = getCurrentSkin();
+            const hue = (t * 0.18) % 360;
+            const strokeColor = skin.rainbow ? `hsl(${hue}, 100%, 60%)` : skin.primary;
+
+            // Gambar simulasi trail zigzag tajam di kanvas pratinjau
+            const shipX = 205;
+            const shipY = h * 0.5 + Math.sin(t * 0.005) * 14;
+            const pts = [
+                { x: 18, y: h * 0.72 },
+                { x: 68, y: h * 0.28 },
+                { x: 118, y: h * 0.72 },
+                { x: 165, y: h * 0.34 },
+                { x: shipX - 8, y: shipY }
+            ];
+
+            skinPreviewCtx.save();
+            skinPreviewCtx.lineJoin = 'miter';
+            skinPreviewCtx.miterLimit = 12;
+            skinPreviewCtx.lineCap = 'butt';
+
+            // Aura luar
+            skinPreviewCtx.strokeStyle = skin.rainbow ? `hsla(${hue}, 100%, 55%, 0.35)` : skin.aura;
+            skinPreviewCtx.lineWidth = 16;
+            skinPreviewCtx.beginPath();
+            pts.forEach((p, i) => i === 0 ? skinPreviewCtx.moveTo(p.x, p.y) : skinPreviewCtx.lineTo(p.x, p.y));
+            skinPreviewCtx.stroke();
+
+            // Lapisan warna utama
+            skinPreviewCtx.strokeStyle = strokeColor;
+            skinPreviewCtx.shadowColor = strokeColor;
+            skinPreviewCtx.shadowBlur = 14;
+            skinPreviewCtx.lineWidth = 8;
+            skinPreviewCtx.stroke();
+
+            // Inti putih terang
+            skinPreviewCtx.strokeStyle = '#ffffff';
+            skinPreviewCtx.lineWidth = 3;
+            skinPreviewCtx.stroke();
+            skinPreviewCtx.restore();
+
+            // Gambar pesawat skin aktif
+            skinPreviewCtx.save();
+            skinPreviewCtx.translate(shipX, shipY);
+            skinPreviewCtx.rotate(Math.cos(t * 0.005) * 0.35);
+            drawWaveShipShape(skinPreviewCtx, skin.id, 18, strokeColor);
+            skinPreviewCtx.restore();
+        }
+
+        // --- 8. LATAR BELAKANG KOTA FUTURISTIK & HUJAN MATRIX ---
+        function initCityParallax() {
+            const theme = getActiveTheme();
+            farBuildings = [];
+            midBuildings = [];
+
+            let x = 0;
+            while (x < width + 320) {
+                const w = 45 + Math.random() * 65;
+                const h = height * (0.28 + Math.random() * 0.38);
+                farBuildings.push({
+                    x,
+                    w,
+                    h,
+                    hasAntenna: Math.random() > 0.55,
+                    windowRows: Math.floor(h / 22),
+                    accent: Math.random() > 0.5 ? theme.farBuilding1 : theme.farBuilding2
+                });
+                x += w + 6;
+            }
+
+            x = 0;
+            while (x < width + 360) {
+                const w = 55 + Math.random() * 80;
+                const h = height * (0.18 + Math.random() * 0.34);
+                const neonColor = theme.buildingNeons[Math.floor(Math.random() * theme.buildingNeons.length)];
+                midBuildings.push({
+                    x,
+                    w,
+                    h,
+                    neonColor,
+                    hasHolo: Math.random() > 0.45,
+                    holoOffsetY: 25 + Math.random() * 45,
+                    holoWidth: w * 0.65,
+                    holoHeight: 16 + Math.random() * 16
+                });
+                x += w + 18;
+            }
+        }
+
+        function initMatrixDrops() {
+            matrixDrops = [];
+            const cols = Math.floor(width / 26);
+            for (let i = 0; i < cols; i++) {
+                matrixDrops.push({
+                    x: i * 26 + 8,
+                    y: Math.random() * height,
+                    speed: 90 + Math.random() * 160,
+                    char: Math.random() > 0.5 ? '1' : '0'
+                });
+            }
+        }
+
+        // --- 9. GENERATOR RINTANGAN, PORTAL & GARIS FINISH LEVEL ---
+        function resetWorld() {
+            const lvl = getCurrentLevel();
+            distance = 0;
+            speedMultiplier = 1.0;
+            gravityInverted = false;
+            isMiniWave = false;
+            screenShake = 0;
+            finishSpawned = false;
+            obstacles = [];
+            portals = [];
+            particles = [];
+
+            player.x = Math.min(130, width * 0.22);
+            player.y = height * 0.5;
+            // Inisialisasi titik awal trail vertex
+            player.vertices = [{ x: player.x - 10, y: player.y }];
+
+            lastCorridorY = height * 0.5;
+            nextSpawnX = width + 180;
+            updateStatusBadge();
+
+            for (let i = 0; i < 6; i++) {
+                spawnNextPattern();
+            }
+        }
+
+        function getTailPosition() {
+            const s = (isMiniWave ? player.size * 0.72 : player.size) * unitScale;
+            const offset = s * 0.45;
+            return {
+                x: player.x - Math.cos(player.angle) * offset,
+                y: player.y - Math.sin(player.angle) * offset
+            };
+        }
+
+        // Mencatat titik sudut (vertex) setiap kali arah 45° berubah agar sudut zigzag tajam
+        function recordTurnVertex() {
+            const tail = getTailPosition();
+            player.vertices.push({ x: tail.x, y: tail.y });
+            const skin = getCurrentSkin();
+            spawnVertexSpark(tail.x, tail.y, skin.primary);
+        }
+
+        function spawnNextPattern() {
+            const lvl = getCurrentLevel();
+            if (finishSpawned) return;
+
+            const metersPerPixel = 1 / (28 * unitScale);
+            const currentSpawnDist = distance + (nextSpawnX - player.x) * metersPerPixel;
+
+            // Cek jika sudah mencapai target jarak level -> Munculkan Garis Finish!
+            if (lvl.targetDistance && currentSpawnDist >= lvl.targetDistance) {
+                obstacles.push({
+                    kind: 'FINISH_LINE',
+                    x: nextSpawnX + 80 * unitScale
+                });
+                finishSpawned = true;
+                return;
+            }
+
+            const difficulty = lvl.targetDistance
+                ? Math.min(1, currentSpawnDist / lvl.targetDistance)
+                : Math.min(1, currentSpawnDist / 1800);
+
+            const margin = 50 * unitScale;
+            const minGap = Math.max(122 * unitScale, (205 * lvl.gapScale - difficulty * 65) * unitScale);
+
+            // Spawn Portal sesuai konfigurasi level
+            if (currentSpawnDist > 90 && Math.random() < 0.22 && portals.length < 2) {
+                const portalCatalog = {
+                    GRAVITY: { type: 'GRAVITY', label: 'GRAVITASI TERBALIK', color: '#b829ff' },
+                    SPEED: { type: 'SPEED', label: 'OVERDRIVE TURBO', color: '#ff9d00' },
+                    MINI: { type: 'MINI', label: 'MINI WAVE', color: '#39ff14' },
+                    NORMAL: { type: 'NORMAL', label: 'SISTEM NORMAL', color: '#00f3ff' }
+                };
+                const key = lvl.portals[Math.floor(Math.random() * lvl.portals.length)];
+                const chosen = portalCatalog[key];
+                portals.push({
+                    x: nextSpawnX + 40,
+                    y: height * 0.5,
+                    width: 24 * unitScale,
+                    passed: false,
+                    ...chosen
+                });
+                nextSpawnX += 235 * unitScale;
+                return;
+            }
+
+            const roll = Math.random();
+            if (roll < 0.48 || (!lvl.allowSaws && !lvl.allowLasers)) {
+                // POLA 1: Lorong Diagonal Cyber
+                const segments = 3 + Math.floor(Math.random() * 2);
+                const segWidth = (155 + Math.random() * 45) * unitScale;
+                let dir = Math.random() > 0.5 ? 1 : -1;
+
+                for (let s = 0; s < segments; s++) {
+                    const shift = dir * (62 + Math.random() * 52) * unitScale;
+                    lastCorridorY = Math.max(
+                        margin + minGap * 0.6,
+                        Math.min(height - margin - minGap * 0.6, lastCorridorY + shift)
+                    );
+                    if (lastCorridorY <= margin + minGap * 0.65 || lastCorridorY >= height - margin - minGap * 0.65) {
+                        dir *= -1;
+                    }
+
+                    const topH = Math.max(20, lastCorridorY - minGap * 0.5);
+                    const botY = lastCorridorY + minGap * 0.5;
+                    const botH = Math.max(20, height - botY);
+
+                    obstacles.push({
+                        kind: 'BLOCK',
+                        x: nextSpawnX,
+                        y: 0,
+                        w: segWidth,
+                        h: topH,
+                        hasSpikes: s % 2 === 0,
+                        spikeDir: 'DOWN'
+                    });
+
+                    obstacles.push({
+                        kind: 'BLOCK',
+                        x: nextSpawnX,
+                        y: botY,
+                        w: segWidth,
+                        h: botH,
+                        hasSpikes: s % 2 === 1,
+                        spikeDir: 'UP'
+                    });
+
+                    nextSpawnX += segWidth + 24 * unitScale;
+                }
+                nextSpawnX += 110 * unitScale;
+
+            } else if (roll < 0.78 && lvl.allowSaws) {
+                // POLA 2: Gerigi Laser Berputar
+                const count = 2 + Math.floor(difficulty * 2);
+                for (let i = 0; i < count; i++) {
+                    const radius = (22 + Math.random() * 13) * unitScale;
+                    const posY = margin + radius + Math.random() * (height - (margin + radius) * 2);
+                    obstacles.push({
+                        kind: 'SAW',
+                        x: nextSpawnX,
+                        y: posY,
+                        r: radius,
+                        rot: Math.random() * Math.PI,
+                        rotSpeed: (Math.random() > 0.5 ? 1 : -1) * (3 + difficulty * 2.8),
+                        moveAmp: difficulty > 0.25 ? (22 + Math.random() * 32) * unitScale : 0,
+                        moveSpeed: 2.1 + Math.random() * 1.4,
+                        baseY: posY,
+                        phase: Math.random() * Math.PI * 2
+                    });
+                    nextSpawnX += (185 - difficulty * 30) * unitScale;
+                }
+                nextSpawnX += 95 * unitScale;
+
+            } else {
+                // POLA 3: Pilar & Sinar Laser Berkedip
+                const pillarW = 46 * unitScale;
+                const gapY = margin + minGap * 0.6 + Math.random() * (height - margin * 2 - minGap * 1.2);
+                const gapSize = minGap * 0.94;
+
+                obstacles.push({
+                    kind: 'BLOCK',
+                    x: nextSpawnX,
+                    y: 0,
+                    w: pillarW,
+                    h: Math.max(20, gapY - gapSize * 0.5),
+                    hasSpikes: true,
+                    spikeDir: 'DOWN'
+                });
+
+                const bY = gapY + gapSize * 0.5;
+                obstacles.push({
+                    kind: 'BLOCK',
+                    x: nextSpawnX,
+                    y: bY,
+                    w: pillarW,
+                    h: Math.max(20, height - bY),
+                    hasSpikes: true,
+                    spikeDir: 'UP'
+                });
+
+                if (lvl.allowLasers) {
+                    obstacles.push({
+                        kind: 'LASER_BEAM',
+                        x: nextSpawnX + pillarW * 0.5,
+                        y1: gapY - gapSize * 0.5,
+                        y2: gapY + gapSize * 0.5,
+                        timer: Math.random() * 3,
+                        active: true
+                    });
+                }
+
+                nextSpawnX += (235 - difficulty * 25) * unitScale;
+            }
+        }
+
+        // --- 10. EFEK PARTIKEL ---
+        function spawnExplosion(x, y, color) {
+            for (let i = 0; i < 42; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const speed = 90 + Math.random() * 420;
+                particles.push({
+                    x,
+                    y,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
+                    size: 2.5 + Math.random() * 5,
+                    life: 1.0,
+                    decay: 1.1 + Math.random() * 1.2,
+                    color: i % 3 === 0 ? '#ffffff' : (i % 2 === 0 ? color : '#ff007f')
+                });
+            }
+        }
+
+        // Percikan kecil tajam di setiap titik belokan zigzag (vertex spark)
+        function spawnVertexSpark(x, y, color) {
+            for (let i = 0; i < 6; i++) {
+                const angle = Math.PI + (Math.random() - 0.5) * 1.6;
+                const speed = 50 + Math.random() * 140;
+                particles.push({
+                    x,
+                    y,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
+                    size: 2 + Math.random() * 2.5,
+                    life: 0.55,
+                    decay: 2.5,
+                    color: i % 2 === 0 ? '#ffffff' : color
+                });
+            }
+        }
+
+        // --- 11. KONTROL SENTUH ZERO-LATENCY, PAUSE & KEYBOARD ---
+        function handlePressStart(e) {
+            if (e.target.closest('button') || e.target.closest('.cyber-card')) return;
+            if (e.cancelable) e.preventDefault();
+            audio.init();
+
+            if (gameState === 'PLAYING' && !isHolding) {
+                isHolding = true;
+                recordTurnVertex();
+                audio.playTurn(!gravityInverted);
+            }
+        }
+
+        function handlePressEnd(e) {
+            if (e.target.closest('button') || e.target.closest('.cyber-card')) return;
+            if (e.cancelable) e.preventDefault();
+
+            if (gameState === 'PLAYING' && isHolding) {
+                isHolding = false;
+                recordTurnVertex();
+                audio.playTurn(gravityInverted);
+            }
+        }
+
+        window.addEventListener('touchstart', handlePressStart, { passive: false });
+        window.addEventListener('touchend', handlePressEnd, { passive: false });
+        window.addEventListener('touchcancel', handlePressEnd, { passive: false });
+        window.addEventListener('mousedown', handlePressStart);
+        window.addEventListener('mouseup', handlePressEnd);
+
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'Space' || e.code === 'ArrowUp') {
+                if (gameState === 'PLAYING' && !isHolding) {
+                    isHolding = true;
+                    recordTurnVertex();
+                    audio.playTurn(!gravityInverted);
+                }
+            } else if (e.code === 'Escape' || e.code === 'KeyP') {
+                if (gameState === 'PLAYING') pauseGame();
+                else if (gameState === 'PAUSED') resumeGame();
+            }
+        });
+        window.addEventListener('keyup', (e) => {
+            if (e.code === 'Space' || e.code === 'ArrowUp') {
+                if (gameState === 'PLAYING' && isHolding) {
+                    isHolding = false;
+                    recordTurnVertex();
+                    audio.playTurn(gravityInverted);
+                }
+            }
+        });
+
+        // Tombol Navigasi Layar
+        document.getElementById('start-btn').addEventListener('click', () => {
+            audio.init();
+            startGame();
+        });
+
+        document.getElementById('retry-btn').addEventListener('click', () => {
+            audio.init();
+            startGame();
+        });
+
+        nextLevelBtn.addEventListener('click', () => {
+            audio.init();
+            if (saveData.selectedLevelIndex < LEVELS.length - 1) {
+                saveData.selectedLevelIndex++;
+                persistSave();
+                renderMenuUI();
+            }
+            startGame();
+        });
+
+        function returnToMainMenu() {
+            gameState = 'START';
+            isHolding = false;
+            audio.stopBGM();
+            pauseScreen.classList.add('hidden');
+            gameoverScreen.classList.add('hidden');
+            pauseBtn.classList.add('hidden');
+            progressWrapper.classList.add('hidden');
+            statusBadgeEl.classList.remove('visible');
+            renderMenuUI();
+            startScreen.classList.remove('hidden');
+        }
+
+        document.getElementById('menu-pause-btn').addEventListener('click', returnToMainMenu);
+        document.getElementById('menu-result-btn').addEventListener('click', returnToMainMenu);
+
+        function pauseGame() {
+            if (gameState !== 'PLAYING') return;
+            gameState = 'PAUSED';
+            isHolding = false;
+            audio.stopBGM();
+            pauseScreen.classList.remove('hidden');
+        }
+
+        function resumeGame() {
+            if (gameState !== 'PAUSED') return;
+            gameState = 'PLAYING';
+            lastTime = performance.now();
+            pauseScreen.classList.add('hidden');
+            audio.startBGM();
+        }
+
+        pauseBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (gameState === 'PLAYING') pauseGame();
+        });
+
+        document.getElementById('resume-btn').addEventListener('click', resumeGame);
+        document.getElementById('restart-pause-btn').addEventListener('click', () => {
+            pauseScreen.classList.add('hidden');
+            startGame();
+        });
+
+        muteBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            audio.init();
+            const muted = audio.toggleMute();
+            iconSoundOn.classList.toggle('hidden', muted);
+            iconSoundOff.classList.toggle('hidden', !muted);
+        });
+
+        // --- 12. ALUR PERMAINAN (MULAI, UPDATE, WIN, GAME OVER) ---
+        function startGame() {
+            const lvl = getCurrentLevel();
+            isHolding = false;
+            gameState = 'PLAYING';
+            startScreen.classList.add('hidden');
+            pauseScreen.classList.add('hidden');
+            gameoverScreen.classList.add('hidden');
+            pauseBtn.classList.remove('hidden');
+
+            if (lvl.targetDistance) {
+                progressWrapper.classList.remove('hidden');
+                progressFill.style.width = '0%';
+                progressText.textContent = '0%';
+            } else {
+                progressWrapper.classList.add('hidden');
+            }
+
+            initCityParallax();
+            updateHUDHeader();
+            resetWorld();
+            audio.startBGM();
+        }
+
+        function triggerLevelComplete() {
+            if (gameState !== 'PLAYING') return;
+            gameState = 'WIN';
+            isHolding = false;
+            pauseBtn.classList.add('hidden');
+            audio.stopBGM();
+            audio.playWin();
+
+            const lvl = getCurrentLevel();
+            const skin = getCurrentSkin();
+            spawnExplosion(player.x, player.y, skin.primary);
+
+            saveData.levelProgress[lvl.id] = 100;
+            persistSave();
+            updateHUDHeader();
+
+            progressFill.style.width = '100%';
+            progressText.textContent = '100%';
+
+            resultCard.style.borderColor = '#39ff14';
+            gameoverTagEl.textContent = `MISI ${lvl.name} SELESAI!`;
+            gameoverTagEl.style.color = '#39ff14';
+            resultTitleEl.textContent = 'LEVEL COMPLETE!';
+
+            statLeftLabel.textContent = 'STATUS MISI';
+            finalScoreEl.textContent = '100%';
+            statRightLabel.textContent = 'JARAK TEMPUH';
+            finalBestScoreEl.textContent = `${lvl.targetDistance} m`;
+
+            nextLevelBtn.classList.toggle('hidden', saveData.selectedLevelIndex >= LEVELS.length - 1);
+
+            setTimeout(() => {
+                gameoverScreen.classList.remove('hidden');
+            }, 420);
+        }
+
+        function triggerGameOver() {
+            if (gameState !== 'PLAYING') return;
+            gameState = 'GAMEOVER';
+            isHolding = false;
+            screenShake = 18;
+            pauseBtn.classList.add('hidden');
+            audio.stopBGM();
+            audio.playExplosion();
+
+            const skin = getCurrentSkin();
+            spawnExplosion(player.x, player.y, skin.primary);
+
+            const lvl = getCurrentLevel();
+            const finalDist = Math.floor(distance);
+            let isNewRecord = false;
+
+            if (lvl.targetDistance) {
+                const pct = Math.min(99, Math.floor((distance / lvl.targetDistance) * 100));
+                if (pct > (saveData.levelProgress[lvl.id] || 0)) {
+                    saveData.levelProgress[lvl.id] = pct;
+                    persistSave();
+                    isNewRecord = true;
+                }
+                statLeftLabel.textContent = 'KEMAJUAN';
+                finalScoreEl.textContent = `${pct}%`;
+                statRightLabel.textContent = 'REKOR LEVEL';
+                finalBestScoreEl.textContent = `${saveData.levelProgress[lvl.id]}%`;
+            } else {
+                if (finalDist > (saveData.levelProgress[lvl.id] || 0)) {
+                    saveData.levelProgress[lvl.id] = finalDist;
+                    persistSave();
+                    isNewRecord = true;
+                }
+                statLeftLabel.textContent = 'JARAK TEMPUH';
+                finalScoreEl.textContent = `${finalDist} m`;
+                statRightLabel.textContent = 'SKOR TERBAIK';
+                finalBestScoreEl.textContent = `${saveData.levelProgress[lvl.id]} m`;
+            }
+
+            updateHUDHeader();
+            resultCard.style.borderColor = '#ff007f';
+            resultTitleEl.textContent = 'GAME OVER';
+            gameoverTagEl.textContent = isNewRecord ? 'REKOR BARU TERCAPAI!' : 'SISTEM HANCUR';
+            gameoverTagEl.style.color = isNewRecord ? '#39ff14' : '#ff007f';
+            nextLevelBtn.classList.add('hidden');
+
+            setTimeout(() => {
+                gameoverScreen.classList.remove('hidden');
+            }, 460);
+        }
+
+        function updateStatusBadge() {
+            const activeModes = [];
+            if (speedMultiplier > 1.05) activeModes.push('TURBO');
+            if (gravityInverted) activeModes.push('GRAVITASI TERBALIK');
+            if (isMiniWave) activeModes.push('MINI WAVE');
+
+            if (activeModes.length > 0) {
+                statusBadgeEl.textContent = `MODE: ${activeModes.join(' + ')}`;
+                statusBadgeEl.classList.add('visible');
+            } else {
+                statusBadgeEl.classList.remove('visible');
+            }
+        }
+
+        function update(dt) {
+            globalClock += dt * 1000;
+
+            if (gameState === 'START') {
+                renderSkinPreviewLoop(globalClock);
+            }
+
+            if (gameState === 'PAUSED') return;
+
+            if (screenShake > 0) {
+                screenShake = Math.max(0, screenShake - dt * 48);
+            }
+
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                p.x += p.vx * dt;
+                p.y += p.vy * dt;
+                p.life -= p.decay * dt;
+                if (p.life <= 0) particles.splice(i, 1);
+            }
+
+            const lvl = getCurrentLevel();
+            const theme = getActiveTheme();
+
+            const currentSpeed = gameState === 'PLAYING'
+                ? (lvl.baseSpeed + (lvl.targetDistance ? 0 : Math.min(260, distance * 0.14))) * speedMultiplier * unitScale
+                : 110 * unitScale;
+
+            // Update Grid, Gedung Parallax & Hujan Kode Matrix
+            gridOffset = (gridOffset + currentSpeed * dt) % (48 * unitScale);
+
+            for (const b of farBuildings) {
+                b.x -= currentSpeed * 0.18 * dt;
+                if (b.x + b.w < -20) {
+                    const maxX = Math.max(...farBuildings.map(item => item.x + item.w));
+                    b.x = maxX + 6;
+                }
+            }
+
+            for (const b of midBuildings) {
+                b.x -= currentSpeed * 0.42 * dt;
+                if (b.x + b.w < -20) {
+                    const maxX = Math.max(...midBuildings.map(item => item.x + item.w));
+                    b.x = maxX + 18;
+                }
+            }
+
+            if (theme.matrixRain) {
+                for (const drop of matrixDrops) {
+                    drop.y += drop.speed * dt;
+                    drop.x -= currentSpeed * 0.15 * dt;
+                    if (drop.y > height) drop.y = -20;
+                    if (drop.x < 0) drop.x += width;
+                }
+            }
+
+            if (gameState !== 'PLAYING') return;
+
+            // Update Jarak & Progress Bar
+            distance += (currentSpeed * dt) / (28 * unitScale);
+            hudScoreEl.textContent = `${Math.floor(distance)} m`;
+
+            if (lvl.targetDistance) {
+                const pct = Math.min(100, Math.floor((distance / lvl.targetDistance) * 100));
+                progressFill.style.width = `${pct}%`;
+                progressText.textContent = `${pct}%`;
+            }
+
+            // Gerakan Wave Dash 45 Derajat (vy = ±vx)
+            let directionY = isHolding ? -1 : 1;
+            if (gravityInverted) directionY *= -1;
+
+            player.y += directionY * currentSpeed * dt;
+            player.angle = directionY * (Math.PI / 4);
+
+            // Geser semua titik sudut trail (vertices) ke kiri dalam ruang dunia (world-space)
+            for (let i = player.vertices.length - 1; i >= 0; i--) {
+                player.vertices[i].x -= currentSpeed * dt;
+                // Hapus titik yang sudah jauh di luar layar kiri (sisakan minimal 1 titik jangkar di luar layar)
+                if (i < player.vertices.length - 1 && player.vertices[i + 1].x < -60) {
+                    player.vertices.splice(i, 1);
+                }
+            }
+
+            // Cek batas energi atas & bawah layar
+            const boundaryPad = 24 * unitScale;
+            const hitRadius = (isMiniWave ? player.size * 0.56 : player.size * 0.76) * unitScale;
+
+            if (player.y - hitRadius <= boundaryPad || player.y + hitRadius >= height - boundaryPad) {
+                triggerGameOver();
+                return;
+            }
+
+            // Spawn rintangan berikutnya
+            nextSpawnX -= currentSpeed * dt;
+            while (nextSpawnX < width + 340 && !finishSpawned) {
+                spawnNextPattern();
+            }
+
+            // Update & Cek Portal
+            for (let i = portals.length - 1; i >= 0; i--) {
+                const portal = portals[i];
+                portal.x -= currentSpeed * dt;
+
+                if (!portal.passed && Math.abs(player.x - portal.x) < portal.width * 0.7) {
+                    portal.passed = true;
+                    recordTurnVertex();
+                    audio.playPortal();
+                    spawnExplosion(portal.x, player.y, portal.color);
+
+                    if (portal.type === 'GRAVITY') {
+                        gravityInverted = !gravityInverted;
+                    } else if (portal.type === 'SPEED') {
+                        speedMultiplier = speedMultiplier > 1.1 ? 1.0 : 1.26;
+                    } else if (portal.type === 'MINI') {
+                        isMiniWave = !isMiniWave;
+                    } else {
+                        gravityInverted = false;
+                        speedMultiplier = 1.0;
+                        isMiniWave = false;
+                    }
+                    updateStatusBadge();
+                }
+
+                if (portal.x + portal.width < -60) {
+                    portals.splice(i, 1);
+                }
+            }
+
+            // Update & Cek Rintangan / Garis Finish
+            for (let i = obstacles.length - 1; i >= 0; i--) {
+                const obs = obstacles[i];
+                obs.x -= currentSpeed * dt;
+
+                if (obs.kind === 'FINISH_LINE') {
+                    if (player.x >= obs.x) {
+                        triggerLevelComplete();
+                        return;
+                    }
+                } else if (obs.kind === 'BLOCK') {
+                    const closestX = Math.max(obs.x, Math.min(player.x, obs.x + obs.w));
+                    const closestY = Math.max(obs.y, Math.min(player.y, obs.y + obs.h));
+                    const dx = player.x - closestX;
+                    const dy = player.y - closestY;
+                    if (dx * dx + dy * dy < hitRadius * hitRadius) {
+                        triggerGameOver();
+                        return;
+                    }
+                    if (obs.x + obs.w < -80) obstacles.splice(i, 1);
+
+                } else if (obs.kind === 'SAW') {
+                    obs.rot += obs.rotSpeed * dt;
+                    if (obs.moveAmp > 0) {
+                        obs.phase += obs.moveSpeed * dt;
+                        obs.y = obs.baseY + Math.sin(obs.phase) * obs.moveAmp;
+                    }
+                    const dx = player.x - obs.x;
+                    const dy = player.y - obs.y;
+                    const minDist = hitRadius + obs.r * 0.84;
+                    if (dx * dx + dy * dy < minDist * minDist) {
+                        triggerGameOver();
+                        return;
+                    }
+                    if (obs.x + obs.r < -80) obstacles.splice(i, 1);
+
+                } else if (obs.kind === 'LASER_BEAM') {
+                    obs.timer += dt;
+                    obs.active = (obs.timer % 2.4) < 1.3;
+                    if (obs.active && Math.abs(player.x - obs.x) < hitRadius + 3) {
+                        if (player.y > obs.y1 && player.y < obs.y2) {
+                            triggerGameOver();
+                            return;
+                        }
+                    }
+                    if (obs.x < -80) obstacles.splice(i, 1);
+                }
+            }
+        }
+
+        // --- 13. RENDERING VISUAL KOTA, TRAIL VERTEX TAJAM & SKIN ---
+        function draw() {
+            const theme = getActiveTheme();
+            const skin = getCurrentSkin();
+            const dynamicHue = (globalClock * 0.22) % 360;
+            const activePrimaryColor = skin.rainbow ? `hsl(${dynamicHue}, 100%, 60%)` : skin.primary;
+            const activeAuraColor = skin.rainbow ? `hsla(${dynamicHue}, 100%, 55%, 0.36)` : skin.aura;
+
+            ctx.save();
+
+            if (screenShake > 0) {
+                const sx = (Math.random() - 0.5) * screenShake;
+                const sy = (Math.random() - 0.5) * screenShake;
+                ctx.translate(sx, sy);
+            }
+
+            // 1. Langit Sesuai Tema Kota
+            const skyGrad = ctx.createLinearGradient(0, 0, 0, height);
+            skyGrad.addColorStop(0, theme.skyTop);
+            skyGrad.addColorStop(0.55, theme.skyMid);
+            skyGrad.addColorStop(1, theme.skyBot);
+            ctx.fillStyle = skyGrad;
+            ctx.fillRect(0, 0, width, height);
+
+            // Hujan Kode Matriks (Khusus Tema Matrix Mainframe)
+            if (theme.matrixRain) {
+                ctx.save();
+                ctx.fillStyle = 'rgba(57, 255, 20, 0.16)';
+                ctx.font = 'bold 14px monospace';
+                for (const drop of matrixDrops) {
+                    ctx.fillText(drop.char, drop.x, drop.y);
+                }
+                ctx.restore();
+            }
+
+            // Matahari / Bulan Holografik
+            const sunX = width * 0.72;
+            const sunY = height * 0.34;
+            const sunR = Math.min(width, height) * 0.17;
+            const sunGrad = ctx.createLinearGradient(sunX, sunY - sunR, sunX, sunY + sunR);
+            sunGrad.addColorStop(0, theme.sunTop);
+            sunGrad.addColorStop(1, theme.sunBot);
+            ctx.fillStyle = sunGrad;
+            ctx.beginPath();
+            ctx.arc(sunX, sunY, sunR, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 2. Gedung Lapisan Jauh
+            for (const b of farBuildings) {
+                const by = height - b.h;
+                ctx.fillStyle = b.accent;
+                ctx.fillRect(b.x, by, b.w, b.h);
+
+                if (b.hasAntenna) {
+                    ctx.strokeStyle = theme.boundaryColor;
+                    ctx.globalAlpha = 0.25;
+                    ctx.lineWidth = 1.5;
+                    ctx.beginPath();
+                    ctx.moveTo(b.x + b.w * 0.5, by);
+                    ctx.lineTo(b.x + b.w * 0.5, by - 22);
+                    ctx.stroke();
+                    ctx.globalAlpha = 1;
+                }
+
+                ctx.fillStyle = theme.boundaryColor;
+                ctx.globalAlpha = 0.11;
+                for (let r = 1; r < b.windowRows; r += 2) {
+                    ctx.fillRect(b.x + 8, by + r * 20, b.w - 16, 4);
+                }
+                ctx.globalAlpha = 1;
+            }
+
+            // 3. Gedung Lapisan Tengah & Papan Reklame
+            for (const b of midBuildings) {
+                const by = height - b.h;
+                ctx.fillStyle = theme.midBuilding;
+                ctx.fillRect(b.x, by, b.w, b.h);
+
+                ctx.strokeStyle = b.neonColor;
+                ctx.globalAlpha = 0.28;
+                ctx.lineWidth = 1.5;
+                ctx.strokeRect(b.x, by, b.w, b.h);
+
+                if (b.hasHolo) {
+                    ctx.fillStyle = b.neonColor;
+                    ctx.globalAlpha = 0.18;
+                    ctx.fillRect(b.x + 10, by + b.holoOffsetY, b.holoWidth, b.holoHeight);
+                    ctx.globalAlpha = 0.55;
+                    ctx.strokeRect(b.x + 10, by + b.holoOffsetY, b.holoWidth, b.holoHeight);
+                }
+                ctx.globalAlpha = 1;
+            }
+
+            // 4. Grid Futuristik Bergerak
+            const gridSize = 48 * unitScale;
+            ctx.strokeStyle = theme.gridColor;
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            for (let gx = -gridOffset; gx < width; gx += gridSize) {
+                ctx.moveTo(gx, 0);
+                ctx.lineTo(gx, height);
+            }
+            for (let gy = 0; gy < height; gy += gridSize) {
+                ctx.moveTo(0, gy);
+                ctx.lineTo(width, gy);
+            }
+            ctx.stroke();
+
+            // 5. Garis Batas Atas & Bawah
+            const boundaryPad = 24 * unitScale;
+            ctx.save();
+            ctx.strokeStyle = theme.boundaryColor;
+            ctx.lineWidth = 2.5;
+            ctx.shadowColor = theme.boundaryColor;
+            ctx.shadowBlur = 12;
+            ctx.beginPath();
+            ctx.moveTo(0, boundaryPad);
+            ctx.lineTo(width, boundaryPad);
+            ctx.moveTo(0, height - boundaryPad);
+            ctx.lineTo(width, height - boundaryPad);
+            ctx.stroke();
+            ctx.restore();
+
+            // 6. Portal Mekanika
+            for (const portal of portals) {
+                ctx.save();
+                ctx.strokeStyle = portal.color;
+                ctx.fillStyle = portal.color;
+                ctx.shadowColor = portal.color;
+                ctx.shadowBlur = 18;
+                ctx.lineWidth = 3;
+
+                ctx.globalAlpha = 0.22;
+                ctx.fillRect(portal.x - portal.width * 0.5, boundaryPad, portal.width, height - boundaryPad * 2);
+                ctx.globalAlpha = 0.9;
+                ctx.strokeRect(portal.x - portal.width * 0.5, boundaryPad, portal.width, height - boundaryPad * 2);
+                ctx.restore();
+            }
+
+            // 7. Rintangan & Garis Finish
+            for (const obs of obstacles) {
+                if (obs.kind === 'FINISH_LINE') {
+                    ctx.save();
+                    const bannerW = 36 * unitScale;
+                    const grad = ctx.createLinearGradient(obs.x - bannerW, 0, obs.x + bannerW, 0);
+                    grad.addColorStop(0, 'rgba(57, 255, 20, 0)');
+                    grad.addColorStop(0.5, 'rgba(57, 255, 20, 0.45)');
+                    grad.addColorStop(1, 'rgba(57, 255, 20, 0)');
+                    ctx.fillStyle = grad;
+                    ctx.fillRect(obs.x - bannerW, boundaryPad, bannerW * 2, height - boundaryPad * 2);
+
+                    ctx.strokeStyle = '#39ff14';
+                    ctx.shadowColor = '#39ff14';
+                    ctx.shadowBlur = 20;
+                    ctx.lineWidth = 4;
+                    ctx.beginPath();
+                    ctx.moveTo(obs.x, boundaryPad);
+                    ctx.lineTo(obs.x, height - boundaryPad);
+                    ctx.stroke();
+                    ctx.restore();
+
+                } else if (obs.kind === 'BLOCK') {
+                    ctx.save();
+                    ctx.fillStyle = theme.blockFill;
+                    ctx.fillRect(obs.x, obs.y, obs.w, obs.h);
+
+                    ctx.strokeStyle = theme.blockStroke;
+                    ctx.lineWidth = 2.5;
+                    ctx.shadowColor = theme.blockStroke;
+                    ctx.shadowBlur = 12;
+                    ctx.strokeRect(obs.x, obs.y, obs.w, obs.h);
+
+                    if (obs.hasSpikes) {
+                        const spikeW = 16 * unitScale;
+                        const spikeH = 11 * unitScale;
+                        const count = Math.floor(obs.w / spikeW);
+                        ctx.fillStyle = theme.blockStroke;
+                        ctx.beginPath();
+                        for (let s = 0; s < count; s++) {
+                            const sx = obs.x + s * spikeW;
+                            if (obs.spikeDir === 'DOWN') {
+                                ctx.moveTo(sx, obs.y + obs.h);
+                                ctx.lineTo(sx + spikeW * 0.5, obs.y + obs.h + spikeH);
+                                ctx.lineTo(sx + spikeW, obs.y + obs.h);
+                            } else {
+                                ctx.moveTo(sx, obs.y);
+                                ctx.lineTo(sx + spikeW * 0.5, obs.y - spikeH);
+                                ctx.lineTo(sx + spikeW, obs.y);
+                            }
+                        }
+                        ctx.fill();
+                    }
+                    ctx.restore();
+
+                } else if (obs.kind === 'SAW') {
+                    ctx.save();
+                    ctx.translate(obs.x, obs.y);
+                    ctx.rotate(obs.rot);
+
+                    ctx.strokeStyle = theme.sawStroke;
+                    ctx.fillStyle = theme.blockFill;
+                    ctx.shadowColor = theme.sawStroke;
+                    ctx.shadowBlur = 16;
+                    ctx.lineWidth = 2.5;
+
+                    const teeth = 8;
+                    ctx.beginPath();
+                    for (let t = 0; t < teeth * 2; t++) {
+                        const r = t % 2 === 0 ? obs.r : obs.r * 0.58;
+                        const a = (t * Math.PI) / teeth;
+                        const px = Math.cos(a) * r;
+                        const py = Math.sin(a) * r;
+                        if (t === 0) ctx.moveTo(px, py);
+                        else ctx.lineTo(px, py);
+                    }
+                    ctx.closePath();
+                    ctx.fill();
+                    ctx.stroke();
+
+                    ctx.fillStyle = '#ffffff';
+                    ctx.beginPath();
+                    ctx.arc(0, 0, obs.r * 0.22, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.restore();
+
+                } else if (obs.kind === 'LASER_BEAM') {
+                    ctx.save();
+                    if (obs.active) {
+                        ctx.strokeStyle = theme.laserColor;
+                        ctx.lineWidth = 5;
+                        ctx.shadowColor = theme.laserColor;
+                        ctx.shadowBlur = 18;
+                        ctx.beginPath();
+                        ctx.moveTo(obs.x, obs.y1);
+                        ctx.lineTo(obs.x, obs.y2);
+                        ctx.stroke();
+
+                        ctx.strokeStyle = '#ffffff';
+                        ctx.lineWidth = 1.8;
+                        ctx.stroke();
+                    } else {
+                        ctx.strokeStyle = theme.laserColor;
+                        ctx.globalAlpha = 0.28;
+                        ctx.setLineDash([6, 6]);
+                        ctx.lineWidth = 1.5;
+                        ctx.beginPath();
+                        ctx.moveTo(obs.x, obs.y1);
+                        ctx.lineTo(obs.x, obs.y2);
+                        ctx.stroke();
+                    }
+                    ctx.restore();
+                }
+            }
+
+            // 8. RENDER TRAIL WAVE ZIGZAG 45° TAJAM (MULTI-LAYER MITER POLYLINE)
+            if (player.vertices.length > 0 && (gameState === 'PLAYING' || gameState === 'PAUSED')) {
+                const tail = getTailPosition();
+                const baseWidth = (isMiniWave ? 5.5 : 8.5) * unitScale;
+
+                const buildTrailPath = () => {
+                    ctx.beginPath();
+                    ctx.moveTo(player.vertices[0].x, player.vertices[0].y);
+                    for (let i = 1; i < player.vertices.length; i++) {
+                        ctx.lineTo(player.vertices[i].x, player.vertices[i].y);
+                    }
+                    ctx.lineTo(tail.x, tail.y);
+                };
+
+                ctx.save();
+                // Sudut belokan miter runcing tajam seperti Geometry Dash
+                ctx.lineJoin = 'miter';
+                ctx.miterLimit = 14;
+                ctx.lineCap = 'butt';
+
+                // Lapisan 1: Aura luar lebar transparan
+                ctx.strokeStyle = activeAuraColor;
+                ctx.lineWidth = baseWidth * 2.35;
+                buildTrailPath();
+                ctx.stroke();
+
+                // Lapisan 2: Pita neon utama skin dengan shadowBlur tajam
+                ctx.strokeStyle = activePrimaryColor;
+                ctx.shadowColor = activePrimaryColor;
+                ctx.shadowBlur = 18;
+                ctx.lineWidth = baseWidth;
+                buildTrailPath();
+                ctx.stroke();
+
+                // Lapisan 3: Inti putih terang di tengah pita
+                ctx.shadowBlur = 0;
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = baseWidth * 0.36;
+                buildTrailPath();
+                ctx.stroke();
+
+                ctx.restore();
+            }
+
+            // 9. Render Pesawat Wave Sesuai Skin Terpilih
+            if (gameState !== 'GAMEOVER') {
+                ctx.save();
+                ctx.translate(player.x, player.y);
+                ctx.rotate(player.angle);
+                const s = (isMiniWave ? player.size * 0.72 : player.size) * unitScale;
+                drawWaveShipShape(ctx, skin.id, s, activePrimaryColor);
+                ctx.restore();
+            }
+
+            // 10. Partikel Ledakan & Percikan Sudut Belokan
+            for (const p of particles) {
+                ctx.save();
+                ctx.globalAlpha = Math.max(0, p.life);
+                ctx.fillStyle = p.color;
+                ctx.shadowColor = p.color;
+                ctx.shadowBlur = 10;
+                ctx.fillRect(p.x - p.size * 0.5, p.y - p.size * 0.5, p.size, p.size);
+                ctx.restore();
+            }
+
+            ctx.restore();
+        }
+
+        // --- 14. LOOP ANIMASI UTAMA ---
+        function gameLoop(timestamp) {
+            if (!lastTime) lastTime = timestamp;
+            const dt = Math.min(0.05, (timestamp - lastTime) / 1000);
+            lastTime = timestamp;
+
+            update(dt);
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        window.onload = function () {
+            resizeCanvas();
+            renderMenuUI();
+            requestAnimationFrame(gameLoop);
+        };
+    </script>
+</body>
+</html>
